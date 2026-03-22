@@ -1,0 +1,18 @@
+{
+  "name": "DailyWealth4You",
+  "short_name": "DW4Y",
+  "description": "AI-powered live market intelligence, managed trading services, and long-term wealth growth.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#050814",
+  "theme_color": "#B8952A",
+  "icons": [
+    {
+      "src": "/assets/dw4y-logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
