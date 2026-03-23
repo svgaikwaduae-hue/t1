@@ -183,45 +183,32 @@ async function readRequestBody(request) {
   return {};
 }
 
-export async function POST(request) {
-  const body = await readRequestBody(request);
-  const honey = safeValue(body._honey);
-  if (honey) {
-    const redirectPath = normalizeRedirect(body._next);
-    return wantsHtml(request)
-      ? Response.redirect(new URL(redirectPath, request.url), 303)
-      : jsonResponse({ ok: true, redirect: redirectPath });
+export default async function handler(req, res) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
   }
-
-  const requiredEnv = ['RESEND_API_KEY'];
-  const missingEnv = requiredEnv.filter((key) => !safeValue(process.env[key]));
-  if (missingEnv.length) {
-    return wantsHtml(request)
-      ? htmlErrorResponse('Email backend is not configured yet. Please add the Resend settings in Vercel.')
-      : jsonResponse({
-      ok: false,
-      error: 'Email backend is not configured yet. Please add the Resend settings in Vercel.'
-    }, 500);
-  }
-
-  const formType = safeValue(body.form_type) || 'Website Form';
-  const fields = buildOrderedFields(body);
-  const userEmail = safeValue(body.email);
-  const subject = safeValue(body._subject) || FORM_SUBJECTS[formType] || `New Website Submission - ${formType}`;
-  const mailTo = safeValue(process.env.MAIL_TO) || 'support@dailywealth4you.com';
-  const mailFromName = safeValue(process.env.MAIL_FROM_NAME) || 'DailyWealth4You';
-  const mailFromAddress = safeValue(process.env.MAIL_FROM) || 'onboarding@resend.dev';
-  const resendApiKey = safeValue(process.env.RESEND_API_KEY);
 
   try {
+    const body = normalizeBody(req);
+
+    const formType = safeValue(body.form_type) || 'Website Form';
+    const fields = buildOrderedFields(body);
+    const userEmail = safeValue(body.email);
+    const subject = safeValue(body._subject) || FORM_SUBJECTS[formType];
+
+    const mailTo = process.env.MAIL_TO;
+    const mailFromName = process.env.MAIL_FROM_NAME;
+    const mailFromAddress = process.env.MAIL_FROM;
+    const resendApiKey = process.env.RESEND_API_KEY;
+
     const resendResponse = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${resendApiKey}`,
+        Authorization: Bearer ${resendApiKey},
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        from: `"${mailFromName.replace(/"/g, '')}" <${mailFromAddress}>`,
+        from: "${mailFromName}" <${mailFromAddress}>,
         to: [mailTo],
         subject,
         text: buildTextEmail(fields),
@@ -230,30 +217,16 @@ export async function POST(request) {
       })
     });
 
+    const data = await resendResponse.json();
+
     if (!resendResponse.ok) {
-      const errorPayload = await resendResponse.json().catch(() => ({}));
-      const resendMessage =
-        safeValue(errorPayload?.message) ||
-        safeValue(errorPayload?.error) ||
-        safeValue(errorPayload?.name) ||
-        'Resend rejected the email request.';
-      throw new Error(resendMessage);
+      throw new Error(data.message || 'Email failed');
     }
 
-    const redirectPath = normalizeRedirect(body._next);
-    return wantsHtml(request)
-      ? Response.redirect(new URL(redirectPath, request.url), 303)
-      : jsonResponse({
-          ok: true,
-          redirect: redirectPath
-        });
+    return res.status(200).json({ ok: true });
+
   } catch (error) {
-    console.error('MAIL_SEND_FAILED', error);
-    return wantsHtml(request)
-      ? htmlErrorResponse('We could not send your form right now. Please try again or use WhatsApp while we check the mailbox connection.')
-      : jsonResponse({
-          ok: false,
-          error: error.message || 'We could not send your form right now. Please try again or use WhatsApp while we check the mailbox connection.'
-        }, 500);
+    console.error('MAIL_SEND_FAILED:', error);
+    return res.status(500).json({ error: error.message });
   }
 }
