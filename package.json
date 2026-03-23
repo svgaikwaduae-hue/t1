@@ -1,8 +1,0 @@
-{
-  "name": "dailywealth4you-site",
-  "private": true,
-  "type": "module",
-  "dependencies": {
-    "nodemailer": "^6.9.16"
-  }
-}
