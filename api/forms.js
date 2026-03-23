@@ -32,17 +32,20 @@ export default async function handler(req, res) {
 
   try {
     const body = normalizeBody(req);
-
     const userEmail = safeValue(body.email);
 
-    const resendApiKey = process.env.RESEND_API_KEY;
-    const mailTo = process.env.MAIL_TO;
-    const mailFrom = process.env.MAIL_FROM;
-    const mailFromName = process.env.MAIL_FROM_NAME;
+    // ✅ SAFE ENV (no crash)
+    const resendApiKey = process.env.RESEND_API_KEY || "";
+    const mailTo = process.env.MAIL_TO || "support@dailywealth4you.com";
+    const mailFrom = process.env.MAIL_FROM || "onboarding@resend.dev";
+    const mailFromName = process.env.MAIL_FROM_NAME || "DailyWealth4You";
 
-    if (!resendApiKey || !mailTo || !mailFrom) {
-      throw new Error('Missing environment variables');
-    }
+    // ✅ DEBUG (important)
+    console.log("ENV DEBUG:", {
+      key: resendApiKey ? "OK" : "MISSING",
+      from: mailFrom,
+      to: mailTo
+    });
 
     const response = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -62,6 +65,7 @@ export default async function handler(req, res) {
     const data = await response.json();
 
     if (!response.ok) {
+      console.error("RESEND ERROR:", data);
       throw new Error(data.message || 'Email failed');
     }
 
